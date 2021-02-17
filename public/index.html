@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>To Do List</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+<body>
+    <h2>Task's list</h2>
+    <form name="userForm">
+        <input type="hidden" name="id" value="0" />
+        <div class="form-group">
+            <label for="title">Title:</label>
+            <input class="form-control" name="title" />
+        </div>
+        <div class="form-group">
+            <label for="deadline">Deadline:</label>
+            <input class="form-control" name="deadline" />
+        </div>
+        <h3>Upload file</h3>
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <label>Файл</label><br>
+            <input type="file" name="filedata" />
+          </form>
+        <div class="panel-body">
+            <button type="submit" class="btn btn-sm btn-primary">Save</button>
+            <a id="reset" class="btn btn-sm btn-primary">Clear</a>
+        </div>
+    </form>
+    <table class="table table-condensed table-striped table-bordered" id="taskTable">
+        <thead>
+            <tr>
+                <th onclick="sortTable(0)" style="cursor:pointer">Id</th>
+                <th onclick="sortTable(1)" style="cursor:pointer">Title</th>
+                <th onclick="sortTable(2)" style="cursor:pointer">Deadline</th>
+                <th>File</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+   
+    <script>
+    // Получение всех пользователей
+        async function GetTasks() {
+            // отправляет запрос и получаем ответ
+            const response = await fetch("/api/tasks", {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
+            // если запрос прошел нормально
+            if (response.ok === true) {
+                // получаем данные
+                const tasks = await response.json();
+                let rows = document.querySelector("tbody"); 
+                tasks.forEach(task => {
+                    // добавляем полученные элементы в таблицу
+                    rows.append(row(task));
+                });
+            }
+        }
+        // Получение одного пользователя
+        async function GetTask(id) {
+            const response = await fetch("/api/tasks/" + id, {
+                method: "GET",
+                headers: { "Accept": "application/json" }
+            });
+            if (response.ok === true) {
+                const task = await response.json();
+                const form = document.forms["userForm"];
+                form.elements["id"].value = task.id;
+                form.elements["title"].value = task.title;
+                form.elements["deadline"].value = task.deadline;
+            }
+        }
+        // Добавление пользователя
+        async function CreateTask(taskTitle, taskDeadline) {
+  
+            const response = await fetch("api/tasks", {
+                method: "POST",
+                headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: taskTitle,
+                    deadline: new Date(taskDeadline)
+                })
+            });
+            if (response.ok === true) {
+                const task = await response.json();
+                reset();
+                document.querySelector("tbody").append(row(task));
+            }
+        }
+        // Изменение пользователя
+        async function EditTask(taskId, taskTitle, taskDeadline) {
+            const response = await fetch("api/tasks", {
+                method: "PUT",
+                headers: { "Accept": "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: taskId,
+                    title: taskTitle,
+                    deadline: new Date(taskDeadline)
+                })
+            });
+            if (response.ok === true) {
+                const task = await response.json();
+                reset();
+                document.querySelector("tr[data-rowid='" + task.id + "']").replaceWith(row(task));
+            }
+        }
+        // Удаление пользователя
+        async function DeleteTask(id) {
+            const response = await fetch("/api/tasks/" + id, {
+                method: "DELETE",
+                headers: { "Accept": "application/json" }
+            });
+            if (response.ok === true) {
+                const task = await response.json();
+                document.querySelector("tr[data-rowid='" + task.id + "']").remove();
+            }
+        }
+  
+        // сброс формы
+        function reset() {
+            const form = document.forms["userForm"];
+            form.reset();
+            form.elements["id"].value = 0;
+        }
+        // создание строки для таблицы
+        function row(task) {
+  
+            const tr = document.createElement("tr");
+            tr.setAttribute("data-rowid", task.id);
+  
+            const idTd = document.createElement("td");
+            idTd.append(task.id);
+            tr.append(idTd);
+  
+            const titleTd = document.createElement("td");
+            titleTd.append(task.title);
+            tr.append(titleTd);
+  
+            const deadlineTd = document.createElement("td");
+            deadlineTd.append(new Date(task.deadline).toDateString());
+            tr.append(deadlineTd);
+              
+            const linksTd = document.createElement("td");
+  
+            const editLink = document.createElement("a");
+            editLink.setAttribute("data-id", task.id);
+            editLink.setAttribute("style", "cursor:pointer;padding:15px;");
+            editLink.append("Edit");
+            editLink.addEventListener("click", e => {
+  
+                e.preventDefault();
+                GetTask(task.id);
+            });
+            linksTd.append(editLink);
+  
+            const removeLink = document.createElement("a");
+            removeLink.setAttribute("data-id", task.id);
+            removeLink.setAttribute("style", "cursor:pointer;padding:15px;");
+            removeLink.append("Delete");
+            removeLink.addEventListener("click", e => {
+  
+                e.preventDefault();
+                DeleteTask(task.id);
+            });
+  
+            linksTd.append(removeLink);
+            tr.appendChild(linksTd);
+  
+            return tr;
+        }
+        // сброс значений формы
+        document.getElementById("reset").click(function (e) {
+  
+            e.preventDefault();
+            reset();
+        })
+  
+        // отправка формы
+        document.forms["userForm"].addEventListener("submit", e => {
+            e.preventDefault();
+            const form = document.forms["userForm"];
+            const id = form.elements["id"].value;
+            const title = form.elements["title"].value;
+            const deadline = form.elements["deadline"].value;
+            if (id == 0)
+                CreateTask(title, deadline);
+            else
+                EditTask(id, title, deadline);
+        });
+  
+        // загрузка пользователей
+        GetTasks();
+
+        
+    function sortTable(n)
+    {
+        var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+        table = document.getElementById("taskTable");
+        switching = true;
+        // Set the sorting direction to ascending:
+        dir = "asc";
+        /* Make a loop that will continue until
+        no switching has been done: */
+        while (switching) {
+            // Start by saying: no switching is done:
+            switching = false;
+            rows = table.getElementsByTagName("TR");
+            /* Loop through all table rows (except the
+            first, which contains table headers): */
+            for (i = 1; i < (rows.length - 1); i++) {
+            // Start by saying there should be no switching:
+            shouldSwitch = false;
+            /* Get the two elements you want to compare,
+            one from current row and one from the next: */
+            x = rows[i].getElementsByTagName("TD")[n];
+            y = rows[i + 1].getElementsByTagName("TD")[n];    
+            /* Check if the two rows should switch place,
+            based on the direction, asc or desc: */
+            if (dir == "asc") 
+            {
+                if (n == 2)
+                {
+                    if (Date.parse(x.innerHTML) > Date.parse(y.innerHTML))
+                    {
+                    // If so, mark as a switch and break the loop:
+                    shouldSwitch = true;
+                    break;
+                    }
+                } else
+                {
+                    if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+                    // If so, mark as a switch and break the loop:
+                    shouldSwitch = true;
+                    break;
+                }
+            }
+            } else if (dir == "desc") {
+                if (n == 2)
+                {
+                    if (Date.parse(x.innerHTML) < Date.parse(y.innerHTML))
+                    {
+                    // If so, mark as a switch and break the loop:
+                    shouldSwitch = true;
+                    break;
+                    }
+                } else
+                {
+                if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
+                // If so, mark as a switch and break the loop:
+                shouldSwitch = true;
+                break;
+                }
+            }
+            }
+            }
+            if (shouldSwitch) {
+            /* If a switch has been marked, make the switch
+            and mark that a switch has been done: */
+            rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+            switching = true;
+            // Each time a switch is done, increase this count by 1:
+            switchcount ++;
+            } else {
+            /* If no switching has been done AND the direction is "asc",
+            set the direction to "desc" and run the while loop again. */
+            if (switchcount == 0 && dir == "asc") {
+                dir = "desc";
+                switching = true;
+            }
+            }
+        }
+    }
+    </script>
+</body>
+</html>
